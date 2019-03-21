@@ -1,0 +1,2 @@
+# github.com/bnkamalesh/webgo v2.2.3+incompatible
+github.com/bnkamalesh/webgo
