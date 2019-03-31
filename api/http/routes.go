@@ -10,7 +10,7 @@ func helloworld(w http.ResponseWriter, req *http.Request) {
 	webgo.R200(w, "hello world!")
 }
 
-func Routes() []*webgo.Route {
+func routes() []*webgo.Route {
 	return []*webgo.Route{
 		&webgo.Route{
 			Name:     "home",

@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS applications(
+id SERIAL PRIMARY KEY,
+name VARCHAR(255) UNIQUE NOT NULL,
+description VARCHAR(2048),
+totp JSON,
+createdat ABSTIME,
+updatedat ABSTIME
+)
+
+CREATE TABLE IF NOT EXISTS users(
+	id SERIAL PRIMARY KEY,
+	name VARCHAR(255),
+	email VARCHAR(510) UNIQUE NOT NULL,
+	phone VARCHAR(30),
+	password VARCHAR(255),
+	salt VARCHAR(64),
+	createdat ABSTIME,
+	updatedat ABSTIME
+)
+
+CREATE TABLE IF NOT EXISTS applicationOwners(
+id SERIAL PRIMARY KEY,
+appID INTEGER,
+userID INTEGER,
+createdat ABSTIME
+)
