@@ -140,7 +140,7 @@ func (a *Apps) Delete(ctx context.Context, app App) (*App, error) {
 }
 
 func (a *Apps) SetOwner(ctx context.Context, app App, u users.User) (*App, error) {
-	if u.ID == 0 {
+	if u.Validate() != nil {
 		return nil, ErrInvalidOwner
 	}
 	ap, err := a.store.SetOwner(ctx, app, u)
@@ -161,7 +161,7 @@ func (a *Apps) CreateAndSetOwner(ctx context.Context, app App, u users.User) (*A
 		return nil, ErrInvalidName
 	}
 
-	if u.ID == 0 {
+	if u.Validate() != nil {
 		return nil, ErrInvalidOwner
 	}
 

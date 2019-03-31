@@ -48,7 +48,7 @@ func main() {
 	appsHandler := apps.New(appCtx, pgdb)
 	usersHandler := users.New(appCtx, pgdb, cacheHandler)
 
-	test(appsHandler, usersHandler)
+	test(l, appsHandler, usersHandler)
 
 	api := api.New(appCtx, appsHandler, usersHandler)
 
@@ -64,7 +64,7 @@ func main() {
 	}
 }
 
-func test(aH *apps.Apps, uH *users.Users) {
+func test(l logger.Logger, aH *apps.Apps, uH *users.Users) {
 	ctx := context.Background()
 	u, err := uH.Create(
 		ctx,
@@ -76,10 +76,10 @@ func test(aH *apps.Apps, uH *users.Users) {
 		"123456",
 	)
 	if err != nil {
-		fmt.Println(err)
+		l.Error(err)
 		return
 	}
-	u.ID = 1
+
 	a, err := aH.CreateAndSetOwner(
 		ctx,
 		apps.App{
@@ -91,7 +91,7 @@ func test(aH *apps.Apps, uH *users.Users) {
 	)
 
 	if err != nil {
-		fmt.Println(err)
+		l.Error(err)
 		return
 	}
 	fmt.Println("Created app!", a.Name)

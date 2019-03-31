@@ -22,6 +22,7 @@ var (
 	emailRegex = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
 	ErrInvalidEmail = errors.New("Invalid/no email provided")
+	ErrInvalidUser  = errors.New("Invalid user")
 	ErrUnexpected   = errors.New("Sorry, an unexpected error occurred")
 )
 
@@ -72,6 +73,13 @@ type User struct {
 	Salt      string     `json:"-"`
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+}
+
+func (u *User) Validate() error {
+	if u.Email == "" {
+		return ErrInvalidUser
+	}
+	return nil
 }
 
 func (u *User) setPassword(password string) {
