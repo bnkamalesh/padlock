@@ -55,7 +55,7 @@ func (dbs *dbStore) prepColVals(cols ...string) string {
 
 func (dbs *dbStore) Create(ctx context.Context, app App) (*App, error) {
 	stmt := fmt.Sprintf(
-		"INSERT INTO %s %s",
+		"INSERT INTO %s %s RETURNING id",
 		appTable,
 		dbs.prepColVals("name", "description", "totp", "createdAt", "updatedAt"),
 	)
@@ -68,16 +68,11 @@ func (dbs *dbStore) Create(ctx context.Context, app App) (*App, error) {
 		app.CreatedAt,
 		app.UpdatedAt,
 	)
-	err := result.Scan(&app)
+	err := result.Scan(&app.ID)
 	if err != nil {
 		return nil, err
 	}
 	fmt.Println("app.ID=", app.ID)
-	// id, err := result.LastInsertId()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// app.ID = id
 	return &app, nil
 }
 
@@ -106,7 +101,7 @@ func (dbs *dbStore) CreateAndSetOwner(ctx context.Context, app App, u users.User
 	defer dbs.rollback(tx)
 
 	stmt := fmt.Sprintf(
-		"INSERT INTO %s %s",
+		"INSERT INTO %s %s RETURNING id",
 		appTable,
 		dbs.prepColVals("name", "description", "totp", "createdAt", "updatedAt"),
 	)
@@ -116,7 +111,7 @@ func (dbs *dbStore) CreateAndSetOwner(ctx context.Context, app App, u users.User
 		return nil, err
 	}
 
-	result, err := tx.Query(
+	result := tx.QueryRow(
 		stmt,
 		app.Name,
 		app.Description,
@@ -124,15 +119,9 @@ func (dbs *dbStore) CreateAndSetOwner(ctx context.Context, app App, u users.User
 		app.CreatedAt,
 		app.UpdatedAt,
 	)
+	err = result.Scan(&app.ID)
 	if err != nil {
 		return nil, err
-	}
-
-	for result.Next() {
-		err = result.Scan(&app.ID)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	stmt = fmt.Sprintf(

@@ -47,7 +47,7 @@ func (dbs *dbStore) prepColVals(cols ...string) string {
 
 func (dbs *dbStore) Create(ctx context.Context, u User) (*User, error) {
 	stmt := fmt.Sprintf(
-		"INSERT INTO %s %s",
+		"INSERT INTO %s %s RETURNING id",
 		usersTable,
 		dbs.prepColVals(
 			"name",
@@ -59,7 +59,7 @@ func (dbs *dbStore) Create(ctx context.Context, u User) (*User, error) {
 		),
 	)
 
-	result, err := dbs.db.Query(
+	result := dbs.db.QueryRow(
 		stmt,
 		u.Name,
 		u.Email,
@@ -68,15 +68,9 @@ func (dbs *dbStore) Create(ctx context.Context, u User) (*User, error) {
 		u.Salt,
 		u.CreatedAt,
 	)
+	err := result.Scan(&u.ID)
 	if err != nil {
 		return nil, err
-	}
-
-	for result.Next() {
-		err = result.Scan(&u.ID)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return &u, nil
