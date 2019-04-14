@@ -23,6 +23,7 @@ var (
 
 	ErrInvalidEmail = errors.New("Invalid/no email provided")
 	ErrInvalidUser  = errors.New("Invalid user")
+	ErrInvalidLogin = errors.New("Email/password did not match")
 	ErrUnexpected   = errors.New("Sorry, an unexpected error occurred")
 )
 
@@ -52,6 +53,30 @@ func (us *Users) Create(ctx context.Context, u User, password string) (*User, er
 	return usr, nil
 }
 
+func (us *Users) Read(ctx context.Context, id int) (*User, error) {
+	return nil, nil
+}
+
+func (us *Users) Update(ctx context.Context, u User) (*User, error) {
+	if err := u.Validate(); err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	u.UpdatedAt = &now
+
+	usr, err := us.store.Update(ctx, u)
+	if err != nil {
+		us.appCtx.Logger.Error(err)
+		return nil, ErrUnexpected
+	}
+
+	return usr, nil
+}
+
+func (us *Users) ReadByEmail(ctx context.Context, email string) (*User, error) {
+	return nil, nil
+}
+
 func New(appCtx *appcontext.AppContext, sdb *sql.DB, c cache.Cache) *Users {
 	dbs := &dbStore{
 		db: sdb,
@@ -79,6 +104,7 @@ func (u *User) Validate() error {
 	if u.Email == "" {
 		return ErrInvalidUser
 	}
+
 	return nil
 }
 

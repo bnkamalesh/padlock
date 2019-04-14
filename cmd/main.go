@@ -52,7 +52,7 @@ func main() {
 
 	api := api.New(appCtx, appsHandler, usersHandler)
 
-	httpServer, err := http.NewServer("", "8080", api)
+	httpServer, err := http.NewServer("", "8080", api, appCtx)
 	if err != nil {
 		log.Fatal(err)
 		return
@@ -95,4 +95,11 @@ func test(l logger.Logger, aH *apps.Apps, uH *users.Users) {
 		return
 	}
 	fmt.Println("Created app!", a.Name)
+
+	u, _, err = uH.Login(ctx, "localhost", "bnkamalesh@gmail.com", "123456")
+	if err != nil {
+		l.Error(err)
+		return
+	}
+	fmt.Println("Logged in!")
 }

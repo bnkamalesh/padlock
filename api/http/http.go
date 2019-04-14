@@ -3,13 +3,16 @@ package http
 
 import (
 	"github.com/bnkamalesh/webgo"
+	"github.com/bnkamalesh/webgo/middleware"
 
 	"github.com/bnkamalesh/padlock/api"
+	"github.com/bnkamalesh/padlock/pkg/appcontext"
 )
 
 type Server struct {
-	router *webgo.Router
+	appCtx *appcontext.AppContext
 	api    *api.API
+	router *webgo.Router
 }
 
 func (s *Server) Start() error {
@@ -17,12 +20,23 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func NewServer(host, port string, api *api.API) (*Server, error) {
-	s := &Server{}
+func NewServer(host, port string, api *api.API, appCtx *appcontext.AppContext) (*Server, error) {
+	s := &Server{
+		appCtx: appCtx,
+		api:    api,
+	}
+
 	router := webgo.NewRouter(&webgo.Config{
 		Host: host,
 		Port: port,
 	}, routes())
 	s.router = router
+	// This should be final middleware added, so that execution starts with this
+	defer router.Use(s.MiddlewareReqCtx)
+
+	if s.appCtx.Debug {
+		router.Use(middleware.AccessLog)
+	}
+
 	return s, nil
 }

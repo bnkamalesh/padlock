@@ -2,6 +2,7 @@ package webgo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -43,7 +44,7 @@ type customResponseWriter struct {
 // it to the custom response writer
 func (crw *customResponseWriter) WriteHeader(code int) {
 	if crw.written {
-		warnLogger.Println(errMultiHeaderWrite)
+		LOGHANDLER.Warn(errMultiHeaderWrite)
 		return
 	}
 
@@ -55,7 +56,7 @@ func (crw *customResponseWriter) WriteHeader(code int) {
 // but check if a response was already sent.
 func (crw *customResponseWriter) Write(body []byte) (int, error) {
 	if crw.written {
-		warnLogger.Println(errMultiWrite)
+		LOGHANDLER.Warn(errMultiWrite)
 		return 0, nil
 	}
 
@@ -92,7 +93,7 @@ type Route struct {
 
 // computePatternStr computes the pattern string required for generating the route's regex.
 // It also adds the URI parameter key to the route's `keys` field
-func (r *Route) computePatternStr(patternString string, hasWildcard bool, key string) string {
+func (r *Route) computePatternStr(patternString string, hasWildcard bool, key string) (string, error) {
 	regexPattern := ""
 	patternKey := ""
 	if hasWildcard {
@@ -107,18 +108,26 @@ func (r *Route) computePatternStr(patternString string, hasWildcard bool, key st
 
 	for idx, k := range r.uriKeys {
 		if key == k {
-			errLogger.Fatalln(errDuplicateKey, "\nURI: ", r.Pattern, "\nKey:", k, ", Position:", idx+1)
+			return "", errors.New(
+				fmt.Sprintf(
+					"%s\nURI:%s\nKey:%s, Position: %d",
+					errDuplicateKey,
+					r.Pattern,
+					k,
+					idx+1,
+				),
+			)
 		}
 	}
 
 	r.uriKeys = append(r.uriKeys, key)
-	return patternString
+	return patternString, nil
 }
 
 // init prepares the URIKeys, compile regex for the provided pattern
 func (r *Route) init() error {
 	patternString := r.Pattern
-
+	var err error
 	if strings.Contains(r.Pattern, ":") {
 		// uriValues is a map of URI Key and it's respective value,
 		// this is calculated per request
@@ -136,16 +145,21 @@ func (r *Route) init() error {
 			} else if hasKey && char != "/" {
 				key += char
 			} else if hasKey && len(key) > 0 {
-				patternString = r.computePatternStr(patternString, hasWildcard, key)
+				patternString, err = r.computePatternStr(patternString, hasWildcard, key)
+				if err != nil {
+					return err
+				}
 				hasWildcard, hasKey = false, false
 				key = ""
 			}
 		}
 
 		if hasKey && len(key) > 0 {
-			patternString = r.computePatternStr(patternString, hasWildcard, key)
+			patternString, err = r.computePatternStr(patternString, hasWildcard, key)
+			if err != nil {
+				return err
+			}
 		}
-
 	}
 
 	if r.TrailingSlash {
@@ -233,11 +247,14 @@ func (rtr *Router) serve(rw http.ResponseWriter, req *http.Request) {
 		rr = rtr.patchHandlers
 	case http.MethodDelete:
 		rr = rtr.deleteHandlers
+	default:
+		Send(rw, "", "501 Not Implemented", http.StatusNotImplemented)
+		return
 	}
 
 	var route *Route
 	ok := false
-	params := make(map[string]string, 0)
+	params := make(map[string]string)
 	path := req.URL.EscapedPath()
 	for _, r := range rr {
 		if ok, params = r.matchAndGet(path); ok {
@@ -269,7 +286,7 @@ func (rtr *Router) serve(rw http.ResponseWriter, req *http.Request) {
 	)
 
 	for _, handler := range route.Handlers {
-		if crw.written == false {
+		if !crw.written {
 			// If there has been no write to response writer yet
 			handler(crw, reqwc)
 		} else if route.FallThroughPostResponse {
@@ -297,6 +314,49 @@ func (rtr *Router) Use(f func(http.ResponseWriter, *http.Request, http.HandlerFu
 
 // NewRouter initializes returns a new router instance with all the configurations and routes set
 func NewRouter(cfg *Config, routes []*Route) *Router {
+	handlers := httpHandlers(routes)
+	r := &Router{
+		optHandlers:    handlers[http.MethodOptions],
+		headHandlers:   handlers[http.MethodHead],
+		getHandlers:    handlers[http.MethodGet],
+		postHandlers:   handlers[http.MethodPost],
+		putHandlers:    handlers[http.MethodPut],
+		patchHandlers:  handlers[http.MethodPatch],
+		deleteHandlers: handlers[http.MethodDelete],
+
+		NotFound:   http.NotFound,
+		AppContext: make(map[string]interface{}),
+		config:     cfg,
+	}
+
+	// setting the default serve handler
+	r.serveHandler = r.serve
+
+	return r
+}
+
+// checkDuplicateRoutes checks if any of the routes have duplicate name or URI pattern
+func checkDuplicateRoutes(idx int, route *Route, routes []*Route) {
+	// checking if the URI pattern is duplicated
+	for i := 0; i < idx; i++ {
+		rt := routes[i]
+
+		if rt.Name == route.Name {
+			LOGHANDLER.Warn("Duplicate route name(\"" + rt.Name + "\") detected. Route name should be unique.")
+		}
+
+		if rt.Method == route.Method {
+			// regex pattern match
+			if ok, _ := rt.matchAndGet(route.Pattern); ok {
+				LOGHANDLER.Warn("Duplicate URI pattern detected.\nPattern: '" + rt.Pattern + "'\nDuplicate pattern: '" + route.Pattern + "'")
+				LOGHANDLER.Info("Only the first route to match the URI pattern would handle the request")
+			}
+		}
+	}
+}
+
+// httpHandlers returns all the handlers in a map, for each HTTP method
+func httpHandlers(routes []*Route) map[string][]*Route {
 	handlers := make(map[string][]*Route, len(validHTTPMethods))
 
 	for _, validMethod := range validHTTPMethods {
@@ -308,57 +368,30 @@ func NewRouter(cfg *Config, routes []*Route) *Router {
 		for _, validMethod := range validHTTPMethods {
 			if route.Method == validMethod {
 				found = true
+				break
 			}
 		}
 
 		if !found {
-			errLogger.Fatalln("Unsupported HTTP request method provided. Method:", route.Method)
+			LOGHANDLER.Fatal("Unsupported HTTP request method provided. Method:", route.Method)
+			return nil
 		}
 
 		if route.Handlers == nil || len(route.Handlers) == 0 {
-			errLogger.Fatalln("No handlers provided for the route '", route.Pattern, "', method '", route.Method, "'")
+			LOGHANDLER.Fatal("No handlers provided for the route '", route.Pattern, "', method '", route.Method, "'")
+			return nil
 		}
 
 		err := route.init()
 		if err != nil {
-			errLogger.Fatalln("Unsupported URI pattern.", route.Pattern, err)
+			LOGHANDLER.Fatal("Unsupported URI pattern.", route.Pattern, err)
+			return nil
 		}
 
-		// checking if the URI pattern is duplicated
-		for i := 0; i < idx; i++ {
-			rt := routes[i]
-
-			if rt.Name == route.Name {
-				warnLogger.Println("Duplicate route name(\"" + rt.Name + "\") detected. Route name should be unique.")
-			}
-
-			if rt.Method == route.Method {
-				// regex pattern match
-				if ok, _ := rt.matchAndGet(route.Pattern); ok {
-					warnLogger.Println("Duplicate URI pattern detected.\nPattern: '" + rt.Pattern + "'\nDuplicate pattern: '" + route.Pattern + "'")
-					infoLogger.Println("Only the first route to match the URI pattern would handle the request")
-				}
-			}
-		}
+		checkDuplicateRoutes(idx, route, routes)
 
 		handlers[route.Method] = append(handlers[route.Method], route)
 	}
 
-	r := &Router{
-		optHandlers:    handlers[http.MethodOptions],
-		headHandlers:   handlers[http.MethodHead],
-		getHandlers:    handlers[http.MethodGet],
-		postHandlers:   handlers[http.MethodPost],
-		putHandlers:    handlers[http.MethodPut],
-		patchHandlers:  handlers[http.MethodPatch],
-		deleteHandlers: handlers[http.MethodDelete],
-
-		NotFound:   http.NotFound,
-		AppContext: make(map[string]interface{}, 0),
-		config:     cfg,
-	}
-	// setting the default serve handler
-	r.serveHandler = r.serve
-
-	return r
+	return handlers
 }

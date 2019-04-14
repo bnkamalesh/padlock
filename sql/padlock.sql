@@ -1,13 +1,18 @@
+TRUNCATE applicationOwners RESTART IDENTITY
 TRUNCATE users RESTART IDENTITY CASCADE
 TRUNCATE applications RESTART IDENTITY CASCADE
+
+DROP TABLE applicationOwners
+DROP TABLE applications
+DROP TABLE users
 
 CREATE TABLE IF NOT EXISTS applications(
 id SERIAL PRIMARY KEY,
 name VARCHAR(255) UNIQUE NOT NULL,
 description VARCHAR(2048),
 totp JSON,
-createdat ABSTIME,
-updatedat ABSTIME
+createdat timestamp(0) with time zone,
+updatedat timestamp(0) with time zone
 )
 
 CREATE TABLE IF NOT EXISTS users(
@@ -17,15 +22,15 @@ CREATE TABLE IF NOT EXISTS users(
 	phone VARCHAR(30),
 	password VARCHAR(255),
 	salt VARCHAR(64),
-	createdat ABSTIME,
-	updatedat ABSTIME
+	createdat timestamp(0) with time zone,
+	updatedat timestamp(0) with time zone
 )
 
 CREATE TABLE IF NOT EXISTS applicationOwners(
 id SERIAL PRIMARY KEY,
 appID INTEGER,
 userID INTEGER,
-createdat ABSTIME,
+createdat timestamp(0) with time zone,
 FOREIGN KEY (appID) REFERENCES applications (id),
 FOREIGN KEY (userID) REFERENCES users (id) 
 )
