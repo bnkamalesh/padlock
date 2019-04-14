@@ -28,7 +28,7 @@ type dbStore struct {
 
 func (dbs *dbStore) rollback(tx *sql.Tx) {
 	err := tx.Rollback()
-	if err != nil && err != sql.ErrTxDone {
+	if err != nil && err != sql.ErrTxDone && dbs.appCtx.Logging {
 		dbs.appCtx.Logger.Error(err)
 	}
 }

@@ -44,6 +44,15 @@ func main() {
 	}
 
 	appCtx := appcontext.New(l)
+	appCtx.Logging = true
+	if appCtx.Logging {
+		if !appCtx.Debug {
+			l = logger.New("info", "warn", "error", "fatal")
+		} else {
+			l = logger.New("*")
+		}
+		appCtx.Logger = l
+	}
 
 	appsHandler := apps.New(appCtx, pgdb)
 	usersHandler := users.New(appCtx, pgdb, cacheHandler)
@@ -52,7 +61,13 @@ func main() {
 
 	api := api.New(appCtx, appsHandler, usersHandler)
 
-	httpServer, err := http.NewServer("", "8080", api, appCtx)
+	httpServer, err := http.NewServer(
+		"",
+		"8080",
+		"localhost",
+		api,
+		appCtx,
+	)
 	if err != nil {
 		log.Fatal(err)
 		return

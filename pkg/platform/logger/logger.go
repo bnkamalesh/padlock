@@ -51,6 +51,7 @@ type Log struct {
 // New returns an instance of Log with all the dependencies initialized
 func New(types ...string) Logger {
 	l := &Log{}
+
 	for _, t := range types {
 		switch t {
 		case "debug":

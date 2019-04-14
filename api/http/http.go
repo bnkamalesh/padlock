@@ -10,9 +10,10 @@ import (
 )
 
 type Server struct {
-	appCtx *appcontext.AppContext
-	api    *api.API
-	router *webgo.Router
+	appDomain string
+	appCtx    *appcontext.AppContext
+	api       *api.API
+	router    *webgo.Router
 }
 
 func (s *Server) Start() error {
@@ -20,16 +21,18 @@ func (s *Server) Start() error {
 	return nil
 }
 
-func NewServer(host, port string, api *api.API, appCtx *appcontext.AppContext) (*Server, error) {
+func NewServer(host, port, appdomain string, api *api.API, appCtx *appcontext.AppContext) (*Server, error) {
 	s := &Server{
-		appCtx: appCtx,
-		api:    api,
+		appCtx:    appCtx,
+		api:       api,
+		appDomain: appdomain,
 	}
 
 	router := webgo.NewRouter(&webgo.Config{
 		Host: host,
 		Port: port,
-	}, routes())
+	}, routes(s))
+	webgo.LOGHANDLER = appCtx.Logger
 	s.router = router
 	// This should be final middleware added, so that execution starts with this
 	defer router.Use(s.MiddlewareReqCtx)

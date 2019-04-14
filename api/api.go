@@ -3,6 +3,8 @@
 package api
 
 import (
+	"context"
+
 	"github.com/bnkamalesh/padlock/pkg/appcontext"
 	"github.com/bnkamalesh/padlock/pkg/apps"
 	"github.com/bnkamalesh/padlock/pkg/users"
@@ -22,4 +24,14 @@ func New(appCtx *appcontext.AppContext, a *apps.Apps, u *users.Users) *API {
 	}
 
 	return api
+}
+
+// AuthenticatedUser gets the details of the user based on the ource & auth token provided
+func (a *API) Login(ctx context.Context, source, email, password string) (*users.User, string, error) {
+	return a.users.Login(ctx, source, email, password)
+}
+
+// AuthenticatedUser gets the details of the user based on the ource & auth token provided
+func (a *API) AuthenticatedUser(ctx context.Context, source, token string) (*users.User, error) {
+	return a.users.AuthUser(ctx, source, token)
 }

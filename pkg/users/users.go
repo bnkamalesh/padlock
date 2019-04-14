@@ -46,7 +46,9 @@ func (us *Users) Create(ctx context.Context, u User, password string) (*User, er
 
 	usr, err := us.store.Create(ctx, u)
 	if err != nil {
-		us.appCtx.Logger.Error(err)
+		if us.appCtx.Logging {
+			us.appCtx.Logger.Error(err)
+		}
 		return nil, ErrUnexpected
 	}
 
@@ -61,12 +63,15 @@ func (us *Users) Update(ctx context.Context, u User) (*User, error) {
 	if err := u.Validate(); err != nil {
 		return nil, err
 	}
+
 	now := time.Now()
 	u.UpdatedAt = &now
 
 	usr, err := us.store.Update(ctx, u)
 	if err != nil {
-		us.appCtx.Logger.Error(err)
+		if us.appCtx.Logging {
+			us.appCtx.Logger.Error(err)
+		}
 		return nil, ErrUnexpected
 	}
 

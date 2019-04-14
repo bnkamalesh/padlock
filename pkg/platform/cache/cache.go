@@ -5,11 +5,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-redis/cache"
+
 	"github.com/bnkamalesh/padlock/pkg/platform/cache/redis"
 )
 
 // ErrNotFound is the error encountered when key not found in the cache
-var ErrNotFound = errors.New("Key does not exist")
+var ErrNotFound = errors.New("Key not found")
 
 // ErrCacheNoHost is the error encountered when the provided Redis/Hosts are not available
 var ErrCacheNoHost = errors.New("No valid host address(es) provided")
@@ -48,7 +50,12 @@ func (h *Handler) Set(key string, value interface{}, expiry time.Duration) error
 }
 
 func (h *Handler) Get(key string, result interface{}) error {
-	return h.client.Get(key, result)
+	err := h.client.Get(key, result)
+	if err == cache.ErrCacheMiss {
+		return ErrNotFound
+	}
+
+	return err
 }
 
 func (h *Handler) Ping() error {
